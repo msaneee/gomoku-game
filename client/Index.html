@@ -318,8 +318,10 @@
         const quitBtn = document.getElementById('quitBtn');
         const messageArea = document.getElementById('messageArea');
         
-        // YOUR RENDER URL
+        // YOUR RENDER URL - MAKE SURE THIS IS CORRECT
         const RENDER_URL = "wss://gomoku-game-6e2f.onrender.com";
+        
+        console.log("Using Render URL:", RENDER_URL);
         
         // Generate a unique session ID for this browser tab
         function generateSessionId() {
@@ -542,11 +544,12 @@
             let wsUrl;
             if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
                 wsUrl = `ws://localhost:8080`;
+                addMessage(`LOCAL MODE: Connecting to ${wsUrl}...`);
             } else {
                 wsUrl = RENDER_URL;
+                addMessage(`PRODUCTION MODE: Connecting to ${wsUrl}...`);
             }
             
-            addMessage(`Connecting to ${wsUrl}...`);
             connectBtn.disabled = true;
             connectBtn.textContent = 'Connecting...';
             
@@ -554,7 +557,7 @@
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = () => {
-                    addMessage(`Connected!`);
+                    addMessage(`✅ Connected to server!`);
                     if (isReconnect && playerId && sessionId) {
                         socket.send(`RECONNECT|${playerId}|${sessionId}|${myName}`);
                     } else {
@@ -701,7 +704,7 @@
                 
                 socket.onerror = (error) => {
                     console.error('WebSocket error:', error);
-                    addMessage('Connection error', true);
+                    addMessage('❌ Connection error. Make sure the server is running.', true);
                     connectBtn.disabled = false;
                     connectBtn.textContent = 'Connect to Server';
                 };
@@ -804,6 +807,7 @@
         setTimeout(resizeCanvas, 100);
         
         console.log("Client ready. Using Render URL:", RENDER_URL);
+        addMessage(`🔧 Client loaded. Server URL: ${RENDER_URL}`, false);
     </script>
 </body>
 </html>
