@@ -318,6 +318,9 @@
         const quitBtn = document.getElementById('quitBtn');
         const messageArea = document.getElementById('messageArea');
         
+        // YOUR RENDER URL
+        const RENDER_URL = "wss://gomoku-game-6e2f.onrender.com";
+        
         // Generate a unique session ID for this browser tab
         function generateSessionId() {
             return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -535,9 +538,13 @@
                 playerNameInput.disabled = true;
             }
             
-            // IMPORTANT: Update this URL to your Render.com server URL
-            // Replace "gomoku-game.onrender.com" with your actual Render URL
-            const wsUrl = `wss://gomoku-game-6e2f.onrender.com`;
+            // Use the Render URL for production, localhost for development
+            let wsUrl;
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+                wsUrl = `ws://localhost:8080`;
+            } else {
+                wsUrl = RENDER_URL;
+            }
             
             addMessage(`Connecting to ${wsUrl}...`);
             connectBtn.disabled = true;
@@ -757,6 +764,7 @@
         window.addEventListener('load', () => {
             sessionId = generateSessionId();
             console.log('Page loaded with session ID:', sessionId);
+            console.log('Render URL:', RENDER_URL);
             const restored = loadGameState();
             if (restored && (gameActive || gameStarted)) {
                 addMessage("🔄 Page refreshed - reconnecting to game...", false);
@@ -795,7 +803,7 @@
         window.addEventListener('resize', resizeCanvas);
         setTimeout(resizeCanvas, 100);
         
-        console.log("Client ready. Waiting for connection...");
+        console.log("Client ready. Using Render URL:", RENDER_URL);
     </script>
 </body>
 </html>
