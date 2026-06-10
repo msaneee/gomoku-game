@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import asyncio
+import json
 import websockets
 from collections import deque
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import os
 
 # Game constants
 BOARD_SIZE = 10
@@ -10,10 +14,10 @@ WIN_CONDITION = 5
 # Server state
 waiting_players = deque()
 games = []
-
-# Track active player sessions
 active_players = {}
-active_connections = {}
+
+# Get port from environment variable (Render sets this)
+PORT = int(os.environ.get('PORT', 8080))
 
 
 class GameRoom:
@@ -100,7 +104,6 @@ class GameRoom:
         return True
     
     def check_win(self, row, col, stone):
-        # Horizontal
         count = 1
         c = col - 1
         while c >= 0 and self.board[row][c] == stone:
@@ -113,7 +116,6 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
-        # Vertical
         count = 1
         r = row - 1
         while r >= 0 and self.board[r][col] == stone:
@@ -126,7 +128,6 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
-        # Diagonal (\)
         count = 1
         r, c = row - 1, col - 1
         while r >= 0 and c >= 0 and self.board[r][c] == stone:
@@ -141,7 +142,6 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
-        # Diagonal (/)
         count = 1
         r, c = row - 1, col + 1
         while r >= 0 and c < BOARD_SIZE and self.board[r][c] == stone:
@@ -212,15 +212,7 @@ class Player:
 
 
 async def handle_client(websocket, path=None):
-    """Handle a new client connection - supports both WebSocket and HTTP health checks"""
-    
-    # --- IMPORTANT: Handle HTTP Health Checks for Render ---
-    # Check if this is an HTTP request (not WebSocket upgrade)
-    if path is not None and (path == "/health" or path == "/healthz" or path == "/"):
-        # This is a health check - return HTTP 200 OK
-        return await health_check(websocket, path)
-    
-    # Otherwise, handle WebSocket connection
+    """Handle WebSocket client connections"""
     player = None
     session_id = f"session_{int(asyncio.get_event_loop().time() * 1000)}_{id(websocket)}"
     
@@ -239,8 +231,6 @@ async def handle_client(websocket, path=None):
                 old_session_id = parts[2]
                 player_name = parts[3] if len(parts) > 3 else "Player"
                 
-                print(f"RECONNECT request - player_id={player_id}")
-                
                 if player_id in active_players:
                     existing_player = active_players[player_id]
                     
@@ -250,8 +240,6 @@ async def handle_client(websocket, path=None):
                             existing_player.session_id = session_id
                             player = existing_player
                             active_players[player_id] = player
-                            
-                            print(f"✓ Page REFRESH - {player.name} reconnected")
                             
                             await websocket.send(f"CONNECTED|Welcome back {player.name} - Game restored")
                             await asyncio.sleep(0.1)
@@ -302,8 +290,6 @@ async def handle_client(websocket, path=None):
         
         # Handle incoming messages
         async for message in websocket:
-            print(f"Message from {player.name}: {message}")
-            
             if message == "QUIT":
                 if player.game:
                     await player.game.end_game_for_player(player, is_quit=True)
@@ -340,23 +326,10 @@ async def handle_client(websocket, path=None):
         if player and player.player_id in active_players:
             del active_players[player.player_id]
     except Exception as e:
-        print(f"Error in handle_client: {e}")
+        print(f"Error: {e}")
     finally:
         if player and not player.game and player in waiting_players:
             waiting_players.remove(player)
-
-
-async def health_check(websocket, path):
-    """Handle HTTP health check requests from Render"""
-    # Send HTTP response
-    response = b"HTTP/1.1 200 OK\r\n"
-    response += b"Content-Type: text/plain\r\n"
-    response += b"Content-Length: 2\r\n"
-    response += b"\r\n"
-    response += b"OK"
-    
-    await websocket.send(response)
-    return response
 
 
 async def add_to_waiting(player):
@@ -378,15 +351,52 @@ async def try_match_players():
         print(f"Active games: {len(games)}")
 
 
-async def main():
-    host = "0.0.0.0"
-    port = 8080
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    """Simple HTTP handler for health checks"""
     
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'OK')
+    
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+    
+    def log_message(self, format, *args):
+        # Suppress health check logs
+        if args[0] != 'HEAD / HTTP/1.1':
+            print(f"Health check: {args}")
+    
+    def handle_one_request(self):
+        try:
+            super().handle_one_request()
+        except Exception:
+            pass
+
+
+def run_health_server():
+    """Run a simple HTTP server for health checks on a different port"""
+    # Find an available port for health checks (Render uses PORT env var)
+    health_port = int(os.environ.get('PORT', 8080)) + 1
+    server = HTTPServer(('0.0.0.0', health_port), HealthCheckHandler)
+    print(f"Health check server running on port {health_port}")
+    server.serve_forever()
+
+
+async def main():
     print(f"=== GoMoKu Python Server ===")
-    print(f"Listening on {host}:{port}")
+    print(f"WebSocket server will run on port {PORT}")
     print("Waiting for players...\n")
     
-    async with websockets.serve(handle_client, host, port):
+    # Start health check server in a separate thread
+    health_thread = threading.Thread(target=run_health_server, daemon=True)
+    health_thread.start()
+    
+    # Run WebSocket server
+    async with websockets.serve(handle_client, "0.0.0.0", PORT):
         await asyncio.Future()
 
 
