@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
-import json
 import websockets
 from collections import deque
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 import os
 
 # Game constants
@@ -41,16 +38,15 @@ class GameRoom:
         asyncio.create_task(self._safe_send(self.player1.websocket, f"START|BLACK|Your turn|{self.player2.name}"))
         asyncio.create_task(self._safe_send(self.player2.websocket, f"START|WHITE|Waiting|{self.player1.name}"))
         
-        print(f"Game started [{self.game_id}]: {self.player1.name} (BLACK) vs {self.player2.name} (WHITE)")
+        print(f"Game started: {self.player1.name} (BLACK) vs {self.player2.name} (WHITE)")
     
     async def _safe_send(self, websocket, message):
         try:
-            if websocket and hasattr(websocket, 'open') and websocket.open:
-                await websocket.send(message)
-                return True
+            await websocket.send(message)
+            return True
         except Exception as e:
-            print(f"Failed to send message: {e}")
-        return False
+            print(f"Failed to send: {e}")
+            return False
     
     async def make_move(self, player, row, col):
         if not self.game_active:
@@ -62,11 +58,11 @@ class GameRoom:
             return False
         
         if row < 0 or row >= BOARD_SIZE or col < 0 or col >= BOARD_SIZE:
-            await self._safe_send(player.websocket, "ERROR|Invalid position (0-9 only)")
+            await self._safe_send(player.websocket, "ERROR|Invalid position")
             return False
         
         if self.board[row][col] != 0:
-            await self._safe_send(player.websocket, "ERROR|Position already occupied")
+            await self._safe_send(player.websocket, "ERROR|Position occupied")
             return False
         
         stone = 1 if player.color == "BLACK" else 2
@@ -76,7 +72,7 @@ class GameRoom:
         await self._safe_send(self.player1.websocket, move_msg)
         await self._safe_send(self.player2.websocket, move_msg)
         
-        print(f"{player.name} placed {player.color} at ({row},{col})")
+        print(f"{player.name} placed at ({row},{col})")
         
         if self.check_win(row, col, stone):
             self.game_active = False
@@ -84,7 +80,6 @@ class GameRoom:
             await self._safe_send(self.player1.websocket, win_msg)
             await self._safe_send(self.player2.websocket, win_msg)
             print(f"{player.name} wins!")
-            self._cleanup_sessions()
             return True
         
         if self.is_draw():
@@ -93,7 +88,6 @@ class GameRoom:
             await self._safe_send(self.player1.websocket, draw_msg)
             await self._safe_send(self.player2.websocket, draw_msg)
             print("Game ended in a draw!")
-            self._cleanup_sessions()
             return True
         
         self.current_turn = "WHITE" if self.current_turn == "BLACK" else "BLACK"
@@ -104,6 +98,7 @@ class GameRoom:
         return True
     
     def check_win(self, row, col, stone):
+        # Horizontal
         count = 1
         c = col - 1
         while c >= 0 and self.board[row][c] == stone:
@@ -116,6 +111,7 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
+        # Vertical
         count = 1
         r = row - 1
         while r >= 0 and self.board[r][col] == stone:
@@ -128,6 +124,7 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
+        # Diagonal
         count = 1
         r, c = row - 1, col - 1
         while r >= 0 and c >= 0 and self.board[r][c] == stone:
@@ -142,6 +139,7 @@ class GameRoom:
         if count >= WIN_CONDITION:
             return True
         
+        # Diagonal
         count = 1
         r, c = row - 1, col + 1
         while r >= 0 and c < BOARD_SIZE and self.board[r][c] == stone:
@@ -165,181 +163,98 @@ class GameRoom:
                     return False
         return True
     
-    def _cleanup_sessions(self):
-        if self.player1.player_id in active_players:
-            del active_players[self.player1.player_id]
-        if self.player2.player_id in active_players:
-            del active_players[self.player2.player_id]
-    
-    async def end_game_for_player(self, player, is_quit=False):
+    async def remove_player(self, player, is_quit=False):
         if not self.game_active:
             return
             
         self.game_active = False
         
         if is_quit:
-            quit_message = f"{player.name} quit the game"
+            message = f"QUIT|{player.name}|{player.name} quit the game"
         else:
-            quit_message = f"{player.name} closed the tab - game ended"
-        
-        full_message = f"QUIT|{player.name}|{quit_message}"
-        
-        print(f"\n*** GAME ENDED ***")
-        print(f"Player: {player.name}")
-        print(f"Reason: {quit_message}")
+            message = f"QUIT|{player.name}|{player.name} disconnected"
         
         other = self.player2 if player == self.player1 else self.player1
-        if other and other.websocket:
-            await self._safe_send(other.websocket, full_message)
-            print(f"✓ Notified {other.name}")
+        if other:
+            await self._safe_send(other.websocket, message)
         
-        self._cleanup_sessions()
+        if player.player_id in active_players:
+            del active_players[player.player_id]
+        if other and other.player_id in active_players:
+            del active_players[other.player_id]
         
         if self in games:
             games.remove(self)
-        
-        print(f"*** Game removed. Active games: {len(games)} ***\n")
 
 
 class Player:
-    def __init__(self, websocket, name, player_id=None, session_id=None):
+    def __init__(self, websocket, name, player_id=None):
         self.websocket = websocket
         self.name = name
-        self.player_id = player_id or f"player_{int(asyncio.get_event_loop().time() * 1000)}_{id(self)}"
-        self.session_id = session_id or f"session_{int(asyncio.get_event_loop().time() * 1000)}"
+        self.player_id = player_id or f"player_{id(self)}"
         self.color = None
         self.game = None
 
 
-async def handle_client(websocket, path=None):
-    """Handle WebSocket client connections"""
+async def handle_client(websocket):
+    """Handle WebSocket connection"""
     player = None
-    session_id = f"session_{int(asyncio.get_event_loop().time() * 1000)}_{id(websocket)}"
     
     try:
-        first_message = await websocket.recv()
-        first_message = first_message.strip()
+        # Wait for player name
+        name = await websocket.recv()
+        name = name.strip()
         
-        print(f"New WebSocket connection - Session: {session_id}")
-        print(f"First message: {first_message}")
+        print(f"New connection: {name}")
         
-        # Check for reconnect
-        if first_message.startswith("RECONNECT|"):
-            parts = first_message.split("|")
-            if len(parts) >= 3:
-                player_id = parts[1]
-                old_session_id = parts[2]
-                player_name = parts[3] if len(parts) > 3 else "Player"
-                
-                if player_id in active_players:
-                    existing_player = active_players[player_id]
-                    
-                    if existing_player.session_id == old_session_id:
-                        if existing_player.game and existing_player.game.game_active:
-                            existing_player.websocket = websocket
-                            existing_player.session_id = session_id
-                            player = existing_player
-                            active_players[player_id] = player
-                            
-                            await websocket.send(f"CONNECTED|Welcome back {player.name} - Game restored")
-                            await asyncio.sleep(0.1)
-                            
-                            other_player = player.game.player2 if player.game.player1 == player else player.game.player1
-                            await websocket.send(f"START|{player.color}|Continue game|{other_player.name}")
-                            await asyncio.sleep(0.1)
-                            
-                            board = player.game.board
-                            for row in range(BOARD_SIZE):
-                                for col in range(BOARD_SIZE):
-                                    if board[row][col] != 0:
-                                        stone_color = "BLACK" if board[row][col] == 1 else "WHITE"
-                                        await websocket.send(f"MOVE|{stone_color}|{row}|{col}")
-                                        await asyncio.sleep(0.02)
-                            
-                            await websocket.send(f"TURN|{player.game.current_turn}")
-                            await websocket.send("CONNECTED|Game restored! Continue playing.")
-                        else:
-                            player = Player(websocket, player_name, player_id, session_id)
-                            active_players[player_id] = player
-                            await websocket.send(f"CONNECTED|Welcome {player.name}")
-                            await add_to_waiting(player)
-                    else:
-                        player = Player(websocket, player_name, player_id, session_id)
-                        active_players[player_id] = player
-                        await websocket.send(f"CONNECTED|Welcome {player.name}")
-                        await add_to_waiting(player)
-                else:
-                    player = Player(websocket, player_name, player_id, session_id)
-                    active_players[player_id] = player
-                    await websocket.send(f"CONNECTED|Welcome {player.name}")
-                    await add_to_waiting(player)
-            else:
-                name = first_message
-                player = Player(websocket, name, None, session_id)
-                await websocket.send(f"CONNECTED|Welcome {player.name}")
-                await add_to_waiting(player)
-        else:
-            name = first_message
-            if not name or len(name) > 20:
-                await websocket.send("ERROR|Invalid name")
-                return
-            
-            player = Player(websocket, name, None, session_id)
-            await websocket.send(f"CONNECTED|Welcome {player.name}")
-            await add_to_waiting(player)
+        if not name or len(name) > 20:
+            await websocket.send("ERROR|Invalid name")
+            return
+        
+        player = Player(websocket, name)
+        await websocket.send(f"CONNECTED|Welcome {name}")
+        
+        # Add to waiting queue
+        waiting_players.append(player)
+        await websocket.send("WAITING|Searching for opponent...")
+        print(f"{name} added to queue. Queue size: {len(waiting_players)}")
+        
+        # Try to match players
+        await try_match_players()
         
         # Handle incoming messages
         async for message in websocket:
-            if message == "QUIT":
-                if player.game:
-                    await player.game.end_game_for_player(player, is_quit=True)
-                if player in waiting_players:
-                    waiting_players.remove(player)
-                if player.player_id in active_players:
-                    del active_players[player.player_id]
-                break
+            print(f"Message from {name}: {message}")
             
-            if message == "PAGE_CLOSE":
+            if message == "QUIT":
+                print(f"{name} quit")
                 if player.game:
-                    await player.game.end_game_for_player(player, is_quit=False)
+                    await player.game.remove_player(player, is_quit=True)
                 if player in waiting_players:
                     waiting_players.remove(player)
-                if player.player_id in active_players:
-                    del active_players[player.player_id]
                 break
             
             if message.startswith("MOVE|"):
                 parts = message.split("|")
-                if len(parts) >= 3:
-                    row = int(parts[1])
-                    col = int(parts[2])
-                    
-                    if player.game:
-                        await player.game.make_move(player, row, col)
-                    else:
-                        await player.websocket.send("ERROR|No active game")
+                row = int(parts[1])
+                col = int(parts[2])
+                if player.game:
+                    await player.game.make_move(player, row, col)
+                else:
+                    await player.websocket.send("ERROR|No active game")
     
     except websockets.exceptions.ConnectionClosed:
-        print(f"Connection closed for: {player.name if player else 'unknown'}")
-        if player and player.game and player.game.game_active:
-            await player.game.end_game_for_player(player, is_quit=False)
-        if player and player.player_id in active_players:
-            del active_players[player.player_id]
+        print(f"Connection closed: {player.name if player else 'unknown'}")
+        if player and player.game:
+            await player.game.remove_player(player, is_quit=False)
+        if player and player in waiting_players:
+            waiting_players.remove(player)
     except Exception as e:
         print(f"Error: {e}")
-    finally:
-        if player and not player.game and player in waiting_players:
-            waiting_players.remove(player)
-
-
-async def add_to_waiting(player):
-    waiting_players.append(player)
-    await player.websocket.send("WAITING|Searching for opponent...")
-    print(f"{player.name} added to waiting queue. Queue size: {len(waiting_players)}")
-    await try_match_players()
 
 
 async def try_match_players():
+    """Match waiting players"""
     while len(waiting_players) >= 2:
         player1 = waiting_players.popleft()
         player2 = waiting_players.popleft()
@@ -347,57 +262,19 @@ async def try_match_players():
         game = GameRoom(player1, player2)
         games.append(game)
         
-        print(f"✓ Match found! {player1.name} vs {player2.name}")
+        print(f"✓ Match found: {player1.name} vs {player2.name}")
         print(f"Active games: {len(games)}")
-
-
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    """Simple HTTP handler for health checks"""
-    
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'OK')
-    
-    def do_HEAD(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-    
-    def log_message(self, format, *args):
-        # Suppress health check logs
-        if args[0] != 'HEAD / HTTP/1.1':
-            print(f"Health check: {args}")
-    
-    def handle_one_request(self):
-        try:
-            super().handle_one_request()
-        except Exception:
-            pass
-
-
-def run_health_server():
-    """Run a simple HTTP server for health checks on a different port"""
-    # Find an available port for health checks (Render uses PORT env var)
-    health_port = int(os.environ.get('PORT', 8080)) + 1
-    server = HTTPServer(('0.0.0.0', health_port), HealthCheckHandler)
-    print(f"Health check server running on port {health_port}")
-    server.serve_forever()
 
 
 async def main():
     print(f"=== GoMoKu Python Server ===")
-    print(f"WebSocket server will run on port {PORT}")
-    print("Waiting for players...\n")
+    print(f"Starting WebSocket server on port {PORT}")
+    print(f"Waiting for players...\n")
     
-    # Start health check server in a separate thread
-    health_thread = threading.Thread(target=run_health_server, daemon=True)
-    health_thread.start()
-    
-    # Run WebSocket server
+    # Start the server
     async with websockets.serve(handle_client, "0.0.0.0", PORT):
-        await asyncio.Future()
+        print(f"Server running on ws://0.0.0.0:{PORT}")
+        await asyncio.Future()  # Run forever
 
 
 if __name__ == "__main__":
