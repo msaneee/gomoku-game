@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoMoKu - Connect 5 Game (Python Server)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GoMoKu - Connect 5 Game</title>
     <style>
         * {
             margin: 0;
@@ -18,45 +18,50 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 15px;
         }
         
         .container {
             background-color: rgba(139, 105, 20, 0.95);
             border-radius: 20px;
-            padding: 25px;
+            padding: 15px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             text-align: center;
+            max-width: 95vw;
+            width: fit-content;
+            margin: 0 auto;
         }
         
         h1 {
             color: #FFD700;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            font-size: clamp(1.5rem, 5vw, 2rem);
         }
         
         .game-info {
             background: #d2a679;
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 15px;
         }
         
         .player-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 20px;
-            margin-bottom: 15px;
+            gap: 10px;
+            margin-bottom: 10px;
             flex-wrap: wrap;
+            justify-content: center;
         }
         
         .player-card {
             background: #f5e6c8;
             border-radius: 10px;
-            padding: 10px 20px;
+            padding: 8px 15px;
             text-align: center;
-            min-width: 150px;
+            min-width: 120px;
             transition: all 0.3s ease;
         }
         
@@ -66,54 +71,62 @@
         }
         
         .player-name {
-            font-size: 1.2em;
+            font-size: clamp(0.9rem, 4vw, 1.1rem);
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             color: #333;
         }
         
         .player-stone {
-            font-size: 0.9em;
+            font-size: clamp(0.8rem, 3vw, 0.9rem);
             font-weight: bold;
         }
         
         .vs {
-            font-size: 1.5em;
+            font-size: 1.2em;
             font-weight: bold;
             color: #FFD700;
             text-shadow: 1px 1px 0 #000;
         }
         
         .status-area {
-            margin-top: 10px;
+            margin-top: 5px;
         }
         
         .status-label {
-            font-size: 1em;
+            font-size: clamp(0.8rem, 3vw, 1em);
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
         }
         
         .turn-indicator {
-            font-size: 1.2em;
+            font-size: clamp(0.8rem, 3.5vw, 1.1em);
             font-weight: bold;
-            padding: 5px 15px;
+            padding: 4px 12px;
             border-radius: 8px;
             background: #f0e6d2;
             display: inline-block;
         }
         
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        
         canvas {
             display: block;
-            margin: 0 auto;
             border-radius: 8px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
             cursor: pointer;
             background: #deb887;
+            width: 100%;
+            height: auto;
+            max-width: 550px;
         }
         
         .control-panel {
-            margin-top: 20px;
+            margin-top: 15px;
             display: flex;
             gap: 10px;
             justify-content: center;
@@ -127,6 +140,7 @@
             border-radius: 8px;
             outline: none;
             font-family: inherit;
+            width: 180px;
         }
         
         button {
@@ -166,19 +180,19 @@
         
         .message-area {
             margin-top: 15px;
-            padding: 10px;
+            padding: 8px;
             background: #f0e6d2;
             border-radius: 8px;
-            font-size: 0.9em;
+            font-size: clamp(0.7rem, 3vw, 0.85rem);
             color: #555;
             min-height: 50px;
-            max-height: 100px;
+            max-height: 80px;
             overflow-y: auto;
             text-align: left;
         }
         
         .message-area div {
-            padding: 4px 0;
+            padding: 3px 0;
             border-bottom: 1px solid #ddd;
         }
         
@@ -197,6 +211,38 @@
             padding: 4px 8px !important;
             margin: 2px 0 !important;
             border-radius: 4px !important;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            .player-card {
+                min-width: 100px;
+                padding: 5px 10px;
+            }
+            .control-panel {
+                gap: 8px;
+            }
+            input, button {
+                padding: 8px 12px;
+                font-size: 0.9em;
+            }
+            .message-area {
+                max-height: 60px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .player-card {
+                min-width: 80px;
+            }
+            .vs {
+                font-size: 1em;
+            }
+            input {
+                width: 140px;
+            }
         }
     </style>
 </head>
@@ -223,10 +269,12 @@
             </div>
         </div>
         
-        <canvas id="boardCanvas" width="550" height="550"></canvas>
+        <div class="canvas-wrapper">
+            <canvas id="boardCanvas" width="550" height="550"></canvas>
+        </div>
         
         <div class="control-panel">
-            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="20">
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="20" autocomplete="off">
             <button id="connectBtn">🔌 Connect to Server</button>
             <button id="quitBtn" disabled>🚪 Quit Game</button>
         </div>
@@ -251,6 +299,8 @@
         let myTurn = false;
         let gameActive = false;
         let gameStarted = false;
+        let playerId = null;
+        let sessionId = null;
         
         // DOM elements
         const canvas = document.getElementById('boardCanvas');
@@ -268,7 +318,79 @@
         const quitBtn = document.getElementById('quitBtn');
         const messageArea = document.getElementById('messageArea');
         
-        // Draw the board and stones
+        // Generate a unique session ID for this browser tab
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // Get or create player ID (persists across refreshes)
+        function getPlayerId() {
+            let id = localStorage.getItem('gomoku_player_id');
+            if (!id) {
+                id = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('gomoku_player_id', id);
+            }
+            return id;
+        }
+        
+        // Save game state for possible refresh recovery
+        function saveGameState() {
+            if (gameStarted && gameActive) {
+                const gameState = {
+                    myColor: myColor,
+                    myName: myName,
+                    opponentName: opponentName,
+                    myTurn: myTurn,
+                    gameActive: gameActive,
+                    gameStarted: gameStarted,
+                    board: board,
+                    playerId: playerId,
+                    sessionId: sessionId
+                };
+                localStorage.setItem('gomoku_game_state', JSON.stringify(gameState));
+                console.log('Game state saved');
+            }
+        }
+        
+        // Load game state after refresh
+        function loadGameState() {
+            const savedState = localStorage.getItem('gomoku_game_state');
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    if (state.sessionId && state.sessionId === sessionId) {
+                        myColor = state.myColor;
+                        myName = state.myName;
+                        opponentName = state.opponentName || "";
+                        myTurn = state.myTurn;
+                        gameActive = state.gameActive;
+                        gameStarted = state.gameStarted;
+                        board = state.board;
+                        playerId = state.playerId;
+                        
+                        if (myName) {
+                            playerNameInput.value = myName;
+                            playerNameInput.disabled = true;
+                        }
+                        
+                        updateUI();
+                        drawBoard();
+                        statusLabel.textContent = "Game in progress - reconnecting...";
+                        return true;
+                    } else {
+                        localStorage.removeItem('gomoku_game_state');
+                    }
+                } catch (e) {
+                    console.error('Failed to load saved state:', e);
+                }
+            }
+            return false;
+        }
+        
+        function clearGameState() {
+            localStorage.removeItem('gomoku_game_state');
+        }
+        
         function drawBoard() {
             ctx.fillStyle = '#deb887';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -339,7 +461,6 @@
             }
             
             messageArea.scrollTop = messageArea.scrollHeight;
-            console.log("Message added:", msg, "isQuit:", isQuit);
         }
         
         function updateUI() {
@@ -380,6 +501,10 @@
                     player2Card.classList.remove('active');
                 }
             }
+            
+            if (gameStarted) {
+                saveGameState();
+            }
         }
         
         function resetGameState() {
@@ -393,17 +518,26 @@
             turnIndicator.innerHTML = '';
             player1Card.classList.remove('active');
             player2Card.classList.remove('active');
+            clearGameState();
         }
         
-        function connectToServer() {
+        function connectToServer(isReconnect = false) {
             const name = playerNameInput.value.trim();
-            if (!name) {
+            if (!name && !isReconnect) {
                 addMessage('Please enter your name', true);
                 return;
             }
             
-            myName = name;
-            const wsUrl = `ws://${window.location.hostname}:8080`;
+            if (!isReconnect) {
+                myName = name;
+                playerId = getPlayerId();
+                sessionId = generateSessionId();
+                playerNameInput.disabled = true;
+            }
+            
+            // IMPORTANT: Update this URL to your Render.com server URL
+            // Replace "gomoku-game.onrender.com" with your actual Render URL
+            const wsUrl = `wss://gomoku-game.onrender.com`;
             
             addMessage(`Connecting to ${wsUrl}...`);
             connectBtn.disabled = true;
@@ -413,9 +547,13 @@
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = () => {
-                    addMessage(`Connected! Sending name: ${myName}`);
-                    socket.send(myName);
-                    statusLabel.textContent = 'Connected, waiting for opponent...';
+                    addMessage(`Connected!`);
+                    if (isReconnect && playerId && sessionId) {
+                        socket.send(`RECONNECT|${playerId}|${sessionId}|${myName}`);
+                    } else {
+                        socket.send(myName);
+                    }
+                    statusLabel.textContent = 'Connected...';
                     quitBtn.disabled = false;
                     connectBtn.textContent = 'Connected';
                 };
@@ -428,7 +566,12 @@
                     
                     switch(command) {
                         case 'CONNECTED':
-                            addMessage(`✅ ${parts[1]}`);
+                            addMessage(`✅ ${parts[1] || 'Connected'}`);
+                            if (parts[1] && parts[1].includes('restored')) {
+                                statusLabel.textContent = 'Game restored!';
+                            } else if (!gameStarted) {
+                                statusLabel.textContent = 'Connected, waiting for opponent...';
+                            }
                             break;
                             
                         case 'WAITING':
@@ -442,7 +585,9 @@
                             myTurn = (myColor === 'BLACK');
                             gameActive = true;
                             gameStarted = true;
-                            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+                            if (!parts[2] || parts[2] !== 'Continue game') {
+                                board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+                            }
                             drawBoard();
                             updateUI();
                             statusLabel.textContent = `Game started! You are ${myColor}`;
@@ -480,6 +625,7 @@
                             connectBtn.disabled = false;
                             connectBtn.textContent = 'Connect to Server';
                             quitBtn.disabled = true;
+                            clearGameState();
                             break;
                             
                         case 'DRAW':
@@ -492,20 +638,17 @@
                             connectBtn.disabled = false;
                             connectBtn.textContent = 'Connect to Server';
                             quitBtn.disabled = true;
+                            clearGameState();
                             break;
                             
                         case 'QUIT':
-                            // Format: QUIT|quitter_name|message_for_display
                             const quitterName = parts[1];
                             const quitMessageText = parts[2];
-                            
-                            console.log(`🚪 QUIT MESSAGE RECEIVED! Quitter: ${quitterName}, Message: ${quitMessageText}`);
                             
                             gameActive = false;
                             gameStarted = false;
                             statusLabel.textContent = quitMessageText;
                             
-                            // Show different message based on who quit
                             if (quitterName === myName) {
                                 turnIndicator.innerHTML = `🚪 You left the game 🚪`;
                                 addMessage(`You quit the game`, false, true);
@@ -519,11 +662,11 @@
                             connectBtn.textContent = 'Connect to Server';
                             quitBtn.disabled = true;
                             
-                            // Clear the board
                             board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
                             drawBoard();
                             player1Card.classList.remove('active');
                             player2Card.classList.remove('active');
+                            clearGameState();
                             break;
                             
                         case 'ERROR':
@@ -537,12 +680,16 @@
                 
                 socket.onclose = () => {
                     console.log('🔌 Socket closed');
-                    addMessage('🔌 Disconnected from server');
-                    statusLabel.textContent = 'Disconnected';
+                    if (gameActive && gameStarted) {
+                        addMessage('⚠️ Connection lost! Refresh to reconnect.', true);
+                        statusLabel.textContent = 'Connection lost - refresh to reconnect';
+                    } else {
+                        addMessage('🔌 Disconnected from server');
+                        statusLabel.textContent = 'Disconnected';
+                    }
                     connectBtn.disabled = false;
                     connectBtn.textContent = 'Connect to Server';
                     quitBtn.disabled = true;
-                    resetGameState();
                 };
                 
                 socket.onerror = (error) => {
@@ -561,12 +708,13 @@
         
         function quitGame() {
             if (socket && socket.readyState === WebSocket.OPEN) {
-                console.log('Sending QUIT command to server');
                 socket.send('QUIT');
-                addMessage('Sending quit request...', false, false);
-            } else {
-                addMessage('Not connected to server', true);
+                addMessage('Quitting game...', false);
             }
+            resetGameState();
+            connectBtn.disabled = false;
+            connectBtn.textContent = 'Connect to Server';
+            quitBtn.disabled = true;
         }
         
         function handleCanvasClick(e) {
@@ -600,20 +748,52 @@
             }
         }
         
-        // Event listeners
-        canvas.addEventListener('click', handleCanvasClick);
-        connectBtn.addEventListener('click', connectToServer);
-        quitBtn.addEventListener('click', quitGame);
-        
-        // Initial draw
-        drawBoard();
-        
-        // Enable Enter key in input field
-        playerNameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                connectToServer();
+        window.addEventListener('beforeunload', () => {
+            if (socket && socket.readyState === WebSocket.OPEN && gameActive) {
+                socket.send('PAGE_CLOSE');
             }
         });
+        
+        window.addEventListener('load', () => {
+            sessionId = generateSessionId();
+            console.log('Page loaded with session ID:', sessionId);
+            const restored = loadGameState();
+            if (restored && (gameActive || gameStarted)) {
+                addMessage("🔄 Page refreshed - reconnecting to game...", false);
+                setTimeout(() => {
+                    connectToServer(true);
+                }, 500);
+            }
+        });
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        connectBtn.addEventListener('click', () => connectToServer(false));
+        quitBtn.addEventListener('click', quitGame);
+        
+        drawBoard();
+        
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connectToServer(false);
+            }
+        });
+        
+        function resizeCanvas() {
+            const wrapper = document.querySelector('.canvas-wrapper');
+            if (wrapper) {
+                const maxWidth = wrapper.clientWidth;
+                if (maxWidth < 550) {
+                    canvas.style.width = maxWidth + 'px';
+                    canvas.style.height = maxWidth + 'px';
+                } else {
+                    canvas.style.width = '550px';
+                    canvas.style.height = '550px';
+                }
+            }
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
         
         console.log("Client ready. Waiting for connection...");
     </script>
