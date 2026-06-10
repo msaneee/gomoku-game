@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoMoKu - Connect 5 Game (Python Server)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a472a 0%, #0e2a1a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background-color: rgba(139, 105, 20, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+        
+        .game-info {
+            background: #d2a679;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .player-card {
+            background: #f5e6c8;
+            border-radius: 10px;
+            padding: 10px 20px;
+            text-align: center;
+            min-width: 150px;
+            transition: all 0.3s ease;
+        }
+        
+        .player-card.active {
+            box-shadow: 0 0 0 3px #FFD700;
+            transform: scale(1.02);
+        }
+        
+        .player-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .player-stone {
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .vs {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 1px 1px 0 #000;
+        }
+        
+        .status-area {
+            margin-top: 10px;
+        }
+        
+        .status-label {
+            font-size: 1em;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .turn-indicator {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 5px 15px;
+            border-radius: 8px;
+            background: #f0e6d2;
+            display: inline-block;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            background: #deb887;
+        }
+        
+        .control-panel {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        input {
+            padding: 10px 15px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #connectBtn {
+            background: #4caf50;
+            color: white;
+        }
+        
+        #connectBtn:hover:not(:disabled) {
+            background: #45a049;
+        }
+        
+        #quitBtn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .message-area {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0e6d2;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #555;
+            min-height: 50px;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        
+        .message-area div {
+            padding: 4px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .error-message {
+            color: #c62828 !important;
+        }
+        
+        .info-message {
+            color: #2e7d32 !important;
+        }
+        
+        .quit-message {
+            color: #ff9800 !important;
+            font-weight: bold !important;
+            background-color: #fff3e0 !important;
+            padding: 4px 8px !important;
+            margin: 2px 0 !important;
+            border-radius: 4px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GoMoKu (Connect 5)</h1>
+        
+        <div class="game-info">
+            <div class="player-info">
+                <div class="player-card" id="player1Card">
+                    <div class="player-name" id="player1Name">You</div>
+                    <div class="player-stone" id="player1Stone">⚫ BLACK</div>
+                </div>
+                <div class="vs">VS</div>
+                <div class="player-card" id="player2Card">
+                    <div class="player-name" id="player2Name">Opponent</div>
+                    <div class="player-stone" id="player2Stone">⚪ WHITE</div>
+                </div>
+            </div>
+            
+            <div class="status-area">
+                <div class="status-label" id="statusLabel">Enter your name and connect</div>
+                <div class="turn-indicator" id="turnIndicator"></div>
+            </div>
+        </div>
+        
+        <canvas id="boardCanvas" width="550" height="550"></canvas>
+        
+        <div class="control-panel">
+            <input type="text" id="playerNameInput" placeholder="Enter your name" maxlength="20">
+            <button id="connectBtn">🔌 Connect to Server</button>
+            <button id="quitBtn" disabled>🚪 Quit Game</button>
+        </div>
+        
+        <div class="message-area" id="messageArea">
+            <div class="info-message">✨ Enter your name and click Connect ✨</div>
+        </div>
+    </div>
+    
+    <script>
+        // Game constants
+        const BOARD_SIZE = 10;
+        const CELL_SIZE = 50;
+        const OFFSET = 25;
+        
+        // Game state
+        let socket = null;
+        let board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+        let myColor = null;
+        let myName = "";
+        let opponentName = "";
+        let myTurn = false;
+        let gameActive = false;
+        let gameStarted = false;
+        
+        // DOM elements
+        const canvas = document.getElementById('boardCanvas');
+        const ctx = canvas.getContext('2d');
+        const player1NameEl = document.getElementById('player1Name');
+        const player2NameEl = document.getElementById('player2Name');
+        const player1Card = document.getElementById('player1Card');
+        const player2Card = document.getElementById('player2Card');
+        const player1Stone = document.getElementById('player1Stone');
+        const player2Stone = document.getElementById('player2Stone');
+        const statusLabel = document.getElementById('statusLabel');
+        const turnIndicator = document.getElementById('turnIndicator');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const quitBtn = document.getElementById('quitBtn');
+        const messageArea = document.getElementById('messageArea');
+        
+        // Draw the board and stones
+        function drawBoard() {
+            ctx.fillStyle = '#deb887';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i <= BOARD_SIZE; i++) {
+                const x = OFFSET + i * CELL_SIZE;
+                ctx.moveTo(x, OFFSET);
+                ctx.lineTo(x, OFFSET + BOARD_SIZE * CELL_SIZE);
+                ctx.stroke();
+                
+                const y = OFFSET + i * CELL_SIZE;
+                ctx.moveTo(OFFSET, y);
+                ctx.lineTo(OFFSET + BOARD_SIZE * CELL_SIZE, y);
+                ctx.stroke();
+            }
+            
+            const stoneSize = CELL_SIZE * 0.7;
+            const stoneOffset = stoneSize / 2;
+            const cellCenter = CELL_SIZE / 2;
+            
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    if (board[row][col] !== 0) {
+                        const x = OFFSET + col * CELL_SIZE + cellCenter - stoneOffset;
+                        const y = OFFSET + row * CELL_SIZE + cellCenter - stoneOffset;
+                        
+                        ctx.beginPath();
+                        ctx.arc(x + stoneOffset, y + stoneOffset, stoneOffset, 0, 2 * Math.PI);
+                        
+                        if (board[row][col] === 1) {
+                            ctx.fillStyle = '#000';
+                            ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(x + stoneOffset - 3, y + stoneOffset - 3, stoneOffset * 0.2, 0, 2 * Math.PI);
+                            ctx.fillStyle = '#666';
+                            ctx.fill();
+                        } else {
+                            ctx.fillStyle = '#fff';
+                            ctx.fill();
+                            ctx.strokeStyle = '#000';
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.arc(x + stoneOffset - 3, y + stoneOffset - 3, stoneOffset * 0.15, 0, 2 * Math.PI);
+                            ctx.fillStyle = '#ddd';
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+        
+        function addMessage(msg, isError = false, isQuit = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.textContent = msg;
+            if (isQuit) {
+                msgDiv.className = 'quit-message';
+            } else {
+                msgDiv.className = isError ? 'error-message' : 'info-message';
+            }
+            messageArea.appendChild(msgDiv);
+            
+            while (messageArea.children.length > 15) {
+                messageArea.removeChild(messageArea.firstChild);
+            }
+            
+            messageArea.scrollTop = messageArea.scrollHeight;
+            console.log("Message added:", msg, "isQuit:", isQuit);
+        }
+        
+        function updateUI() {
+            if (!gameStarted) return;
+            
+            if (myColor === 'BLACK') {
+                player1NameEl.textContent = myName;
+                player2NameEl.textContent = opponentName || 'Waiting...';
+                player1Stone.innerHTML = '⚫ BLACK';
+                player2Stone.innerHTML = '⚪ WHITE';
+            } else if (myColor === 'WHITE') {
+                player1NameEl.textContent = opponentName || 'Waiting...';
+                player2NameEl.textContent = myName;
+                player1Stone.innerHTML = '⚪ WHITE';
+                player2Stone.innerHTML = '⚫ BLACK';
+            }
+            
+            if (myTurn && gameActive) {
+                turnIndicator.innerHTML = '🎯 YOUR TURN - Click on the board 🎯';
+                turnIndicator.style.color = '#2e7d32';
+                turnIndicator.style.background = '#c8e6c9';
+                if (myColor === 'BLACK') {
+                    player1Card.classList.add('active');
+                    player2Card.classList.remove('active');
+                } else {
+                    player1Card.classList.remove('active');
+                    player2Card.classList.add('active');
+                }
+            } else if (gameActive) {
+                turnIndicator.innerHTML = '⏳ WAITING FOR OPPONENT ⏳';
+                turnIndicator.style.color = '#c62828';
+                turnIndicator.style.background = '#ffcdd2';
+                if (myColor === 'BLACK') {
+                    player1Card.classList.remove('active');
+                    player2Card.classList.add('active');
+                } else {
+                    player1Card.classList.add('active');
+                    player2Card.classList.remove('active');
+                }
+            }
+        }
+        
+        function resetGameState() {
+            gameActive = false;
+            gameStarted = false;
+            myColor = null;
+            myTurn = false;
+            opponentName = "";
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+            drawBoard();
+            turnIndicator.innerHTML = '';
+            player1Card.classList.remove('active');
+            player2Card.classList.remove('active');
+        }
+        
+        function connectToServer() {
+            const name = playerNameInput.value.trim();
+            if (!name) {
+                addMessage('Please enter your name', true);
+                return;
+            }
+            
+            myName = name;
+            const wsUrl = `ws://${window.location.hostname}:8080`;
+            
+            addMessage(`Connecting to ${wsUrl}...`);
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+            
+            try {
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = () => {
+                    addMessage(`Connected! Sending name: ${myName}`);
+                    socket.send(myName);
+                    statusLabel.textContent = 'Connected, waiting for opponent...';
+                    quitBtn.disabled = false;
+                    connectBtn.textContent = 'Connected';
+                };
+                
+                socket.onmessage = (event) => {
+                    const msg = event.data;
+                    console.log('📨 Received:', msg);
+                    const parts = msg.split('|');
+                    const command = parts[0];
+                    
+                    switch(command) {
+                        case 'CONNECTED':
+                            addMessage(`✅ ${parts[1]}`);
+                            break;
+                            
+                        case 'WAITING':
+                            statusLabel.textContent = parts[1];
+                            addMessage('🔄 ' + parts[1]);
+                            break;
+                            
+                        case 'START':
+                            myColor = parts[1];
+                            opponentName = parts[3];
+                            myTurn = (myColor === 'BLACK');
+                            gameActive = true;
+                            gameStarted = true;
+                            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+                            drawBoard();
+                            updateUI();
+                            statusLabel.textContent = `Game started! You are ${myColor}`;
+                            addMessage(`🎮 Game started! You play ${myColor} against ${opponentName}`);
+                            break;
+                            
+                        case 'MOVE':
+                            const color = parts[1];
+                            const row = parseInt(parts[2]);
+                            const col = parseInt(parts[3]);
+                            const stone = color === 'BLACK' ? 1 : 2;
+                            board[row][col] = stone;
+                            drawBoard();
+                            myTurn = (myColor !== color);
+                            updateUI();
+                            const playerName = color === myColor ? 'You' : opponentName;
+                            addMessage(`🎲 ${playerName} placed at (${row}, ${col})`);
+                            break;
+                            
+                        case 'TURN':
+                            const nextTurn = parts[1];
+                            myTurn = (myColor === nextTurn);
+                            updateUI();
+                            break;
+                            
+                        case 'WIN':
+                            const winner = parts[1];
+                            const winMsg = parts[2];
+                            gameActive = false;
+                            gameStarted = false;
+                            statusLabel.textContent = winMsg;
+                            turnIndicator.innerHTML = winner === myColor ? '🏆 YOU WIN! 🏆' : '😢 YOU LOSE 😢';
+                            turnIndicator.style.color = winner === myColor ? '#2e7d32' : '#c62828';
+                            addMessage(winMsg);
+                            connectBtn.disabled = false;
+                            connectBtn.textContent = 'Connect to Server';
+                            quitBtn.disabled = true;
+                            break;
+                            
+                        case 'DRAW':
+                            gameActive = false;
+                            gameStarted = false;
+                            statusLabel.textContent = parts[1];
+                            turnIndicator.innerHTML = '🤝 DRAW 🤝';
+                            turnIndicator.style.color = '#ff9800';
+                            addMessage(parts[1]);
+                            connectBtn.disabled = false;
+                            connectBtn.textContent = 'Connect to Server';
+                            quitBtn.disabled = true;
+                            break;
+                            
+                        case 'QUIT':
+                            // Format: QUIT|quitter_name|message_for_display
+                            const quitterName = parts[1];
+                            const quitMessageText = parts[2];
+                            
+                            console.log(`🚪 QUIT MESSAGE RECEIVED! Quitter: ${quitterName}, Message: ${quitMessageText}`);
+                            
+                            gameActive = false;
+                            gameStarted = false;
+                            statusLabel.textContent = quitMessageText;
+                            
+                            // Show different message based on who quit
+                            if (quitterName === myName) {
+                                turnIndicator.innerHTML = `🚪 You left the game 🚪`;
+                                addMessage(`You quit the game`, false, true);
+                            } else {
+                                turnIndicator.innerHTML = `🚪 ${quitterName} left the game 🚪`;
+                                addMessage(quitMessageText, false, true);
+                            }
+                            turnIndicator.style.color = '#ff9800';
+                            
+                            connectBtn.disabled = false;
+                            connectBtn.textContent = 'Connect to Server';
+                            quitBtn.disabled = true;
+                            
+                            // Clear the board
+                            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+                            drawBoard();
+                            player1Card.classList.remove('active');
+                            player2Card.classList.remove('active');
+                            break;
+                            
+                        case 'ERROR':
+                            addMessage(`❌ Error: ${parts[1]}`, true);
+                            break;
+                            
+                        default:
+                            console.log('Unknown command:', command);
+                    }
+                };
+                
+                socket.onclose = () => {
+                    console.log('🔌 Socket closed');
+                    addMessage('🔌 Disconnected from server');
+                    statusLabel.textContent = 'Disconnected';
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect to Server';
+                    quitBtn.disabled = true;
+                    resetGameState();
+                };
+                
+                socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    addMessage('Connection error', true);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect to Server';
+                };
+                
+            } catch(e) {
+                addMessage(`Failed: ${e.message}`, true);
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect to Server';
+            }
+        }
+        
+        function quitGame() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                console.log('Sending QUIT command to server');
+                socket.send('QUIT');
+                addMessage('Sending quit request...', false, false);
+            } else {
+                addMessage('Not connected to server', true);
+            }
+        }
+        
+        function handleCanvasClick(e) {
+            if (!gameActive || !myTurn || !socket || socket.readyState !== WebSocket.OPEN) {
+                if (!gameActive && gameStarted) addMessage('Game not active - reconnect?', true);
+                else if (!myTurn && gameActive) addMessage('Not your turn!', true);
+                else if (!socket || socket.readyState !== WebSocket.OPEN) addMessage('Not connected to server', true);
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+            
+            const col = Math.floor((mouseX - OFFSET) / CELL_SIZE);
+            const row = Math.floor((mouseY - OFFSET) / CELL_SIZE);
+            
+            if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
+                if (board[row][col] === 0) {
+                    socket.send(`MOVE|${row}|${col}`);
+                    addMessage(`You played at (${row}, ${col})`);
+                    statusLabel.textContent = 'Move sent...';
+                } else {
+                    addMessage('Position already taken!', true);
+                }
+            } else {
+                addMessage('Click inside the board grid!', true);
+            }
+        }
+        
+        // Event listeners
+        canvas.addEventListener('click', handleCanvasClick);
+        connectBtn.addEventListener('click', connectToServer);
+        quitBtn.addEventListener('click', quitGame);
+        
+        // Initial draw
+        drawBoard();
+        
+        // Enable Enter key in input field
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                connectToServer();
+            }
+        });
+        
+        console.log("Client ready. Waiting for connection...");
+    </script>
+</body>
+</html>
